@@ -31,7 +31,12 @@ export const loadDeviceInfo = () => {
  */
 export const saveDeviceInfo = (deviceInfo) => {
     try {
-        localStorage.setItem(STORAGE_KEYS.DEVICE_INFO, JSON.stringify(deviceInfo));
+        // 确保设备信息包含时间戳
+        const updatedInfo = {
+            ...deviceInfo,
+            updatedAt: Date.now()
+        };
+        localStorage.setItem(STORAGE_KEYS.DEVICE_INFO, JSON.stringify(updatedInfo));
     } catch (e) {
         console.error('保存设备信息失败:', e);
     }
@@ -59,6 +64,15 @@ export const getPermanentPeerId = () => {
 export const savePermanentPeerId = (peerId) => {
     if (peerId) {
         localStorage.setItem(STORAGE_KEYS.PEER_ID, peerId);
+
+        // 同时更新设备信息中的peerId
+        const deviceInfo = loadDeviceInfo();
+        if (deviceInfo && deviceInfo.peerId !== peerId) {
+            deviceInfo.peerId = peerId;
+            deviceInfo.peerIdUpdatedAt = Date.now();
+            saveDeviceInfo(deviceInfo);
+            console.log('已更新设备信息中的 Peer ID');
+        }
     }
 };
 
@@ -87,18 +101,34 @@ export const syncPeerIdWithDeviceInfo = (deviceInfo) => {
 
     const permanentPeerId = getPermanentPeerId();
     const updatedDeviceInfo = { ...deviceInfo };
+    let needsUpdate = false;
+
+    // 记录同步时间
+    updatedDeviceInfo.syncedAt = Date.now();
 
     if (permanentPeerId) {
         // 如果存在永久 Peer ID，将其同步到设备信息
         if (updatedDeviceInfo.peerId !== permanentPeerId) {
+            console.log('同步中: 用永久ID替换设备信息中的ID');
+            console.log('- 设备信息ID:', updatedDeviceInfo.peerId);
+            console.log('- 永久ID:', permanentPeerId);
+
             updatedDeviceInfo.peerId = permanentPeerId;
-            saveDeviceInfo(updatedDeviceInfo);
+            updatedDeviceInfo.peerIdUpdatedAt = Date.now();
+            needsUpdate = true;
             console.log('已更新设备信息中的 Peer ID 为永久 ID');
         }
     } else if (updatedDeviceInfo.peerId) {
         // 如果设备信息中有 Peer ID 但永久存储没有，将其保存为永久 ID
         savePermanentPeerId(updatedDeviceInfo.peerId);
+        updatedDeviceInfo.peerIdUpdatedAt = Date.now();
+        needsUpdate = true;
         console.log('将设备信息中的 Peer ID 保存为永久 ID:', updatedDeviceInfo.peerId);
+    }
+
+    // 只有在有变更时才保存
+    if (needsUpdate) {
+        saveDeviceInfo(updatedDeviceInfo);
     }
 
     return updatedDeviceInfo;

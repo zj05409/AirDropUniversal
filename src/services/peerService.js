@@ -24,96 +24,134 @@ export const createPeerInstance = async (options = {}) => {
         onClose
     } = options;
 
+    // 重试计数器
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    // 重试创建实例的函数
+    const attemptCreateInstance = async (peerId) => {
+        return new Promise((resolve, reject) => {
+            try {
+                // 创建 Peer 实例
+                console.log('初始化 Peer 实例，使用 ID:', peerId);
+                const peer = new Peer(peerId, PEER_SERVER_CONFIG);
+
+                // 设置超时
+                const timeout = setTimeout(() => {
+                    reject(new Error('Peer 连接超时'));
+                }, 20000);
+
+                // 监听 open 事件
+                peer.on('open', (id) => {
+                    clearTimeout(timeout);
+                    console.log('PeerJS 连接已建立, ID:', id);
+
+                    // 保存成功连接的ID
+                    savePermanentPeerId(peerId);
+
+                    // 通知服务器 Peer ID 已更新
+                    if (deviceId) {
+                        updatePeerId(deviceId, peerId);
+                    }
+
+                    // 调用外部回调
+                    if (typeof onOpen === 'function') {
+                        onOpen(peerId);
+                    }
+
+                    resolve({ peer, peerId });
+                });
+
+                // 监听 connection 事件
+                peer.on('connection', (conn) => {
+                    console.log('收到新的对等连接:', conn.peer);
+                    if (typeof onConnection === 'function') {
+                        onConnection(conn);
+                    }
+                });
+
+                // 监听 error 事件
+                peer.on('error', (err) => {
+                    clearTimeout(timeout);
+                    console.error('PeerJS 错误:', err);
+
+                    // 如果是ID已使用错误且未超过最大重试次数，则重试
+                    if (err.type === 'unavailable-id' && retryCount < maxRetries) {
+                        console.log(`Peer ID ${peerId} 已被使用，尝试生成新ID (重试 ${retryCount + 1}/${maxRetries})`);
+                        retryCount++;
+
+                        // 清理当前实例
+                        try {
+                            peer.destroy();
+                        } catch (e) {
+                            console.error('清理Peer实例时出错:', e);
+                        }
+
+                        // 生成新的ID
+                        const newPeerId = generateValidPeerId();
+                        console.log('生成新的Peer ID:', newPeerId);
+
+                        // 递归尝试使用新ID
+                        setTimeout(() => {
+                            attemptCreateInstance(newPeerId)
+                                .then(resolve)
+                                .catch(reject);
+                        }, 1000); // 延迟1秒再试
+                    } else {
+                        // 调用错误回调
+                        if (typeof onError === 'function') {
+                            onError(err);
+                        }
+                        reject(new Error(getPeerErrorMessage(err)));
+                    }
+                });
+
+                // 监听 disconnected 事件
+                peer.on('disconnected', () => {
+                    console.log('PeerJS 服务器连接断开，尝试重连...');
+
+                    // 检查peer是否已被销毁，只有未销毁的peer才能重连
+                    if (!peer.destroyed) {
+                        try {
+                            peer.reconnect();
+                        } catch (err) {
+                            console.error('PeerJS重连失败:', err);
+                        }
+                    } else {
+                        console.warn('PeerJS实例已销毁，无法重连');
+                    }
+
+                    if (typeof onDisconnected === 'function') {
+                        onDisconnected();
+                    }
+                });
+
+                // 监听 close 事件
+                peer.on('close', () => {
+                    console.log('PeerJS 连接已关闭');
+                    if (typeof onClose === 'function') {
+                        onClose();
+                    }
+                });
+            } catch (error) {
+                console.error('创建 Peer 实例时出错:', error);
+                reject(error);
+            }
+        });
+    };
+
     // 获取或生成 PeerID
     let peerIdToUse = getPermanentPeerId();
-    let isNewId = false;
 
     if (!peerIdToUse) {
         peerIdToUse = generateValidPeerId();
-        isNewId = true;
-        console.log('生成新的永久 Peer ID:', peerIdToUse);
-        savePermanentPeerId(peerIdToUse);
+        console.log('生成新的 Peer ID:', peerIdToUse);
     } else {
         console.log('使用永久存储的 Peer ID:', peerIdToUse);
     }
 
-    return new Promise((resolve, reject) => {
-        try {
-            // 创建 Peer 实例
-            console.log('初始化 Peer 实例，使用 ID:', peerIdToUse);
-            const peer = new Peer(peerIdToUse, PEER_SERVER_CONFIG);
-
-            // 设置超时
-            const timeout = setTimeout(() => {
-                reject(new Error('Peer 连接超时'));
-            }, 20000);
-
-            // 监听 open 事件
-            peer.on('open', (id) => {
-                clearTimeout(timeout);
-                console.log('PeerJS 连接已建立, ID:', id);
-
-                // 处理服务器可能分配不同 ID 的情况
-                if (id !== peerIdToUse) {
-                    console.warn('服务器分配了不同的 ID:', id);
-                    console.warn('但我们将继续使用本地 ID:', peerIdToUse);
-                }
-
-                // 通知服务器 Peer ID 已更新
-                if (deviceId) {
-                    updatePeerId(deviceId, peerIdToUse);
-                }
-
-                // 调用外部回调
-                if (typeof onOpen === 'function') {
-                    onOpen(peerIdToUse, isNewId);
-                }
-
-                resolve({ peer, peerId: peerIdToUse });
-            });
-
-            // 监听 connection 事件
-            peer.on('connection', (conn) => {
-                console.log('收到新的对等连接:', conn.peer);
-                if (typeof onConnection === 'function') {
-                    onConnection(conn);
-                }
-            });
-
-            // 监听 error 事件
-            peer.on('error', (err) => {
-                clearTimeout(timeout);
-                console.error('PeerJS 错误:', err);
-
-                // 仅当未解析时才拒绝承诺，以避免双重解析
-                if (typeof onError === 'function') {
-                    onError(err);
-                }
-
-                reject(new Error(getPeerErrorMessage(err)));
-            });
-
-            // 监听 disconnected 事件
-            peer.on('disconnected', () => {
-                console.log('PeerJS 服务器连接断开，尝试重连...');
-                peer.reconnect();
-                if (typeof onDisconnected === 'function') {
-                    onDisconnected();
-                }
-            });
-
-            // 监听 close 事件
-            peer.on('close', () => {
-                console.log('PeerJS 连接已关闭');
-                if (typeof onClose === 'function') {
-                    onClose();
-                }
-            });
-        } catch (error) {
-            console.error('创建 Peer 实例时出错:', error);
-            reject(error);
-        }
-    });
+    // 开始尝试创建实例
+    return attemptCreateInstance(peerIdToUse);
 };
 
 /**

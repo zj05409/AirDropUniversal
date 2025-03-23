@@ -6,6 +6,7 @@ import FileSelector from './components/FileSelector';
 import DeviceList from './components/DeviceList';
 import TransferStatus from './components/TransferStatus';
 import ErrorMessage from './components/ErrorMessage';
+import QRCodeDisplay from './components/QRCodeDisplay';
 
 // 导入服务和工具
 import socket, {
@@ -52,6 +53,7 @@ function App() {
     const [reconnecting, setReconnecting] = useState(false);
     const [transferStatus, setTransferStatus] = useState('');
     const [error, setError] = useState('');
+    const [showQRCode, setShowQRCode] = useState(false);
 
     // 引用管理
     const peerRef = useRef(null);
@@ -101,6 +103,13 @@ function App() {
 
         // 初始化 PeerJS
         initializePeerJS();
+
+        // 如果是电脑设备（笔记本或台式机），显示QR码
+        if (deviceType === 'laptop' || deviceType === 'desktop') {
+            setShowQRCode(true);
+        } else {
+            setShowQRCode(false);
+        }
     };
 
     // 处理设备重置
@@ -118,6 +127,7 @@ function App() {
         setTransferProgress(0);
         setTransferStatus('');
         setError('');
+        setShowQRCode(false);
 
         // 清除存储
         resetAllStorage();
@@ -145,19 +155,49 @@ function App() {
                     if (deviceId) {
                         updatePeerId(deviceId, id);
                     }
+
+                    // 连接成功后清除任何错误提示
+                    setError('');
+                    setConnectionStatus(CONNECTION_STATES.CONNECTED);
                 },
                 onConnection: handleIncomingConnection,
                 onError: (err) => {
                     console.error('PeerJS 错误:', err);
-                    setError(`PeerJS 错误: ${err.message}`);
+
+                    // 如果不是因为ID已被使用的错误，才显示错误信息
+                    // ID已被使用会在peerService中自动处理
+                    if (err.type !== 'unavailable-id') {
+                        setError(`PeerJS 错误: ${err.message}`);
+                    }
+                },
+                onDisconnected: () => {
+                    setConnectionStatus(CONNECTION_STATES.DISCONNECTED);
                 }
             });
 
             peerRef.current = peer;
+
+            // PeerJS连接成功，更新设备信息中的peerId
+            if (deviceId && peerId) {
+                const savedInfo = loadDeviceInfo();
+                if (savedInfo) {
+                    savedInfo.peerId = peerId;
+                    saveDeviceInfo(savedInfo);
+                }
+            }
+
             return peer;
         } catch (error) {
             console.error('初始化 PeerJS 失败:', error);
-            setError(`无法初始化 Peer 连接: ${error.message}`);
+
+            // 如果是网络连接问题，设置更明确的错误消息
+            if (error.message.includes('网络连接错误') || error.message.includes('连接超时')) {
+                setError('网络连接不稳定，请检查网络后刷新页面');
+            } else {
+                setError(`无法初始化 Peer 连接: ${error.message}`);
+            }
+
+            setConnectionStatus(CONNECTION_STATES.ERROR);
             throw error;
         }
     };
@@ -337,51 +377,69 @@ function App() {
             }
         });
 
-        // 加载保存的设备信息
+        // 如果有保存的设备信息，恢复设备状态
         const savedInfo = loadDeviceInfo();
         if (savedInfo) {
+            console.log('找到保存的设备信息，恢复状态...');
             setDeviceName(savedInfo.name);
             setDeviceType(savedInfo.deviceType);
             setDeviceId(savedInfo.id);
+            setPeerId(savedInfo.peerId);
 
-            // 同步设备信息与永久 Peer ID
-            const updatedInfo = syncPeerIdWithDeviceInfo(savedInfo);
-            if (updatedInfo && updatedInfo.peerId) {
-                setPeerId(updatedInfo.peerId);
+            // 如果是电脑设备，显示QR码
+            if (savedInfo.deviceType === 'laptop' || savedInfo.deviceType === 'desktop') {
+                setShowQRCode(true);
             }
-
-            // 页面加载后初始化 PeerJS 和重连
-            setTimeout(async () => {
-                try {
-                    console.log('页面加载后初始化 PeerJS...');
-                    await initializePeerJS();
-
-                    // 确保服务器知道我们在线
-                    console.log('通知服务器设备已上线');
-                    reconnectDevice(updatedInfo || savedInfo);
-                } catch (error) {
-                    console.error('初始化失败:', error);
-                    setError(`初始化失败: ${error.message}`);
-                }
-            }, 1000); // 延迟 1 秒确保 socket 已连接
         }
 
-        // 清理函数
+        // 清理函数，组件卸载时执行
         return () => {
+            console.log('清理 Socket.IO 监听器...');
             cleanupSocketListeners();
-            cleanupPeer(peerRef.current, connectionsRef.current);
 
-            if (transferTimeoutRef.current) {
-                clearTimeout(transferTimeoutRef.current);
+            // 清理peer连接
+            if (peerRef.current) {
+                console.log('清理 Peer 实例...');
+                cleanupPeer(peerRef.current, connectionsRef.current);
+                peerRef.current = null;
+                connectionsRef.current = {};
             }
         };
     }, []);
+
+    // 当设备ID变化时，初始化PeerJS
+    useEffect(() => {
+        if (deviceId) {
+            console.log('设备ID变化，初始化PeerJS...');
+            initializePeerJS()
+                .catch(err => console.error('初始化PeerJS失败:', err));
+        }
+    }, [deviceId]);
+
+    // 用于当Socket连接时重新注册设备的useEffect
+    useEffect(() => {
+        // 监听socket连接状态
+        if (connectionStatus === CONNECTION_STATES.CONNECTED && deviceId) {
+            // 恢复设备连接
+            const savedInfo = loadDeviceInfo();
+            if (savedInfo) {
+                console.log('Socket已连接，重新注册设备...');
+                // 确保使用更新后的socketId
+                savedInfo.socketId = socket.id;
+                reconnectDevice(savedInfo);
+            }
+        }
+    }, [connectionStatus, deviceId]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4">
             <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
                 <div className="p-5">
                     <h1 className="text-2xl font-bold text-center text-gray-800 mb-4">AirDrop 通用版</h1>
+
+                    {reconnecting && (
+                        <p className="text-yellow-600 text-sm mt-1 text-center mb-4">正在重新连接服务器...</p>
+                    )}
 
                     {/* 设备注册或信息展示 */}
                     <DeviceRegistration
@@ -395,6 +453,13 @@ function App() {
                         onRegister={handleRegisterDevice}
                         onReset={handleResetDevice}
                     />
+
+                    {/* 电脑设备注册后显示二维码 */}
+                    {showQRCode && deviceId && (
+                        <div className="mb-6">
+                            <QRCodeDisplay deviceId={deviceId} />
+                        </div>
+                    )}
 
                     {/* 已注册设备的功能 */}
                     {deviceId && (

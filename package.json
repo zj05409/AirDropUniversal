@@ -9,8 +9,10 @@
         "express": "^4.21.2",
         "peer": "^1.0.2",
         "peerjs": "^1.5.4",
+        "qrcode": "^1.5.4",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
+        "react-qrcode-logo": "^3.0.0",
         "react-scripts": "5.0.1",
         "simple-peer": "^9.11.1",
         "socket.io": "^4.8.1",
@@ -19,11 +21,15 @@
         "ws": "^8.18.1"
     },
     "scripts": {
+        "prestart": "sh -c 'lsof -t -i:3000 | xargs -r kill -9'",
         "start": "HOST=0.0.0.0 react-scripts start",
+        "preserver": "sh -c 'lsof -t -i:3001 | xargs -r kill -9 && lsof -t -i:9000 | xargs -r kill -9'",
+        "server": "node server.js",
+        "clean-start": "sh kill-and-run.sh start",
+        "clean-server": "sh kill-and-run.sh server",
         "build": "react-scripts build",
         "test": "react-scripts test",
-        "eject": "react-scripts eject",
-        "server": "node server.js"
+        "eject": "react-scripts eject"
     },
     "eslintConfig": {
         "extends": [
