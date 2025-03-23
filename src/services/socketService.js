@@ -4,11 +4,32 @@
  */
 
 import io from 'socket.io-client';
-import { getServerUrl, SOCKET_CONFIG } from '../utils/config';
+import { SOCKET_CONFIG, getDynamicServerConfig } from '../utils/config';
 import { loadDeviceInfo, saveDeviceInfo, syncPeerIdWithDeviceInfo } from '../utils/deviceStorage';
 
-// 创建 Socket.IO 实例
-const socket = io(getServerUrl(), SOCKET_CONFIG);
+// 根据当前浏览器host推导初始socket URL
+const getInitialSocketUrl = () => {
+    const host = window.location.hostname;
+    return `http://${host}:3001`;
+};
+
+// 初始使用基于当前host的URL创建Socket实例
+const socketUrl = getInitialSocketUrl();
+console.log('使用初始Socket URL:', socketUrl);
+const socket = io(socketUrl, SOCKET_CONFIG);
+
+// 异步更新Socket配置
+(async () => {
+    try {
+        const dynamicConfig = await getDynamicServerConfig();
+        if (dynamicConfig && dynamicConfig.serverUrl) {
+            console.log('获取到动态服务器URL:', dynamicConfig.serverUrl);
+            // Socket.io不支持动态更改URL，此信息用于调试和记录
+        }
+    } catch (error) {
+        console.error('获取动态服务器URL失败:', error);
+    }
+})();
 
 /**
  * 初始化 Socket.IO 事件监听

@@ -4,7 +4,7 @@
  */
 
 import { Peer } from 'peerjs';
-import { PEER_SERVER_CONFIG } from '../utils/config';
+import { getDynamicServerConfig } from '../utils/config';
 import { getPermanentPeerId, savePermanentPeerId } from '../utils/deviceStorage';
 import { generateValidPeerId, getPeerErrorMessage, cleanupConnection } from '../utils/peerUtils';
 import { updatePeerId } from './socketService';
@@ -28,13 +28,24 @@ export const createPeerInstance = async (options = {}) => {
     let retryCount = 0;
     const maxRetries = 3;
 
+    // 获取服务器配置
+    let peerServerConfig;
+    try {
+        const dynamicConfig = await getDynamicServerConfig();
+        peerServerConfig = dynamicConfig.peerServerConfig;
+        console.log('使用动态PeerJS服务器配置:', peerServerConfig);
+    } catch (error) {
+        console.error('获取动态配置失败，使用默认配置:', error);
+        // peerServerConfig = PEER_SERVER_CONFIG;
+    }
+
     // 重试创建实例的函数
     const attemptCreateInstance = async (peerId) => {
         return new Promise((resolve, reject) => {
             try {
                 // 创建 Peer 实例
                 console.log('初始化 Peer 实例，使用 ID:', peerId);
-                const peer = new Peer(peerId, PEER_SERVER_CONFIG);
+                const peer = new Peer(peerId, peerServerConfig);
 
                 // 设置超时
                 const timeout = setTimeout(() => {

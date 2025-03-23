@@ -24,7 +24,17 @@ export const getServerConfig = async () => {
             throw new Error('无法获取服务器配置');
         }
 
-        return await response.json();
+        const config = await response.json();
+        console.log('获取到服务器配置:', config);
+        return {
+            socketServer: `http://${config.ip}:${config.port}`,
+            peerServer: {
+                host: config.ip,
+                port: config.peerPort,
+                path: '/peerjs',
+                secure: false
+            }
+        };
     } catch (error) {
         console.error('获取服务器配置失败:', error);
         // 返回默认配置
@@ -47,15 +57,21 @@ export const getServerConfig = async () => {
 export const getAppUrl = async () => {
     try {
         const config = await getServerConfig();
-        // 从socketServer中提取IP地址
-        const urlParts = config.socketServer.split('//');
-        const hostParts = urlParts[1].split(':');
-        const ipAddress = hostParts[0];
 
-        // 构建Web应用URL（通常端口为3000）
-        return `http://${ipAddress}:3000`;
+        // 直接使用getServerConfig返回的config对象中的ip
+        if (config && config.socketServer) {
+            const ip = config.peerServer.host;
+            return `http://${ip}:3000`;
+        }
+        throw new Error('配置对象不完整');
     } catch (error) {
         console.error('获取应用URL失败:', error);
-        return window.location.origin; // 作为备选返回当前URL
+        // 作为备选，尝试从当前URL中获取IP地址
+        try {
+            const ipAddress = window.location.hostname;
+            return `http://${ipAddress}:3000`;
+        } catch (e) {
+            return window.location.origin; // 最后的备选方案
+        }
     }
 }; 

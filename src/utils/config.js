@@ -2,24 +2,39 @@
  * 应用的全局配置
  */
 
-// 服务器地址配置
-export const getServerUrl = () => {
-    // 使用固定的服务器地址
-    return 'http://192.168.31.149:3001';
-};
+import { getServerConfig } from './networkUtils';
 
-// PeerJS 服务器配置
-export const PEER_SERVER_CONFIG = {
-    host: '192.168.31.149',
-    port: 9000,
-    path: '/peerjs',
-    secure: false,
-    debug: 3,
-    config: {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+
+// 获取动态服务器配置
+export const getDynamicServerConfig = async () => {
+    try {
+        const config = await getServerConfig();
+        return {
+            serverUrl: config.socketServer,
+            peerServerConfig: config.peerServer
+        };
+    } catch (error) {
+        console.error('获取动态服务器配置失败:', error);
+        // 如果获取动态配置失败，则根据当前浏览器的host推导
+        const host = window.location.hostname;
+        const socketServerUrl = `http://${host}:3001`;
+
+        return {
+            serverUrl: socketServerUrl,
+            peerServerConfig: {
+                host: host,
+                port: 9000,
+                path: '/peerjs',
+                secure: false,
+                debug: 3,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            }
+        };
     }
 };
 

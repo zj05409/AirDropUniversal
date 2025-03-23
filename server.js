@@ -3,6 +3,12 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { PeerServer } = require('peer');
+const os = require('os'); // 添加os模块用于获取网络接口
+
+// 定义端口变量
+const PORT = process.env.PORT || 3001;
+const PEER_PORT = 9000;
+const HOST = '0.0.0.0';
 
 const app = express();
 
@@ -18,6 +24,37 @@ app.use(express.json());
 // 创建 HTTP 服务器
 const server = createServer(app);
 
+// 获取服务器局域网 IP 地址的函数
+const getLocalIpAddress = () => {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            // 跳过非IPv4和内部地址
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    // 如果没有找到合适的IP地址，返回默认值
+    return '127.0.0.1';
+};
+
+// API端点：获取服务器IP地址
+app.get('/api/server-config', (req, res) => {
+    try {
+        const serverIp = getLocalIpAddress();
+        console.log('服务器IP地址:', serverIp);
+        res.json({
+            ip: serverIp,
+            port: PORT,
+            peerPort: PEER_PORT
+        });
+    } catch (error) {
+        console.error('获取服务器信息时出错:', error);
+        res.status(500).json({ error: '获取服务器信息失败' });
+    }
+});
+
 // 配置 Socket.IO
 const io = new Server(server, {
     cors: {
@@ -30,7 +67,7 @@ const io = new Server(server, {
 
 // 创建独立的 PeerJS 服务器
 const peerServer = PeerServer({
-    port: 9000,
+    port: PEER_PORT,
     path: '/peerjs',
     proxied: false,
     allow_discovery: true,
@@ -185,13 +222,11 @@ process.on('unhandledRejection', (error) => {
 });
 
 // 启动服务器
-const PORT = process.env.PORT || 3001;
-const HOST = '0.0.0.0';
-
 server.listen(PORT, HOST, (error) => {
     if (error) {
         console.error('服务器启动失败:', error);
         process.exit(1);
     }
     console.log(`服务器运行在 http://${HOST}:${PORT}`);
+    console.log(`本地网络地址: http://${getLocalIpAddress()}:${PORT}`);
 }); 
