@@ -1,0 +1,33 @@
+# 依赖目录
+/node_modules
+/.pnp
+.pnp.js
+
+# 测试覆盖
+/coverage
+
+# 生产构建
+/build
+/dist
+
+# 环境文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志文件
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编辑器和 IDE 文件
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# 特定项目文件
+.eslintcache
