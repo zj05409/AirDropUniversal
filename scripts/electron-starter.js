@@ -29,13 +29,26 @@ const getLocalIpAddress = () => {
     return '127.0.0.1';
 };
 
+// 检查是否使用不压缩模式
+const useUncompressedMode = process.env.GENERATE_SOURCEMAP === 'true';
+
 // 启动React开发服务器
-console.log('启动React开发服务器...');
+console.log(`启动React开发服务器${useUncompressedMode ? '(不压缩模式)' : ''}...`);
 const reactProcess = spawn(getNpxCommand(), ['react-scripts', 'start'], {
     env: {
         ...process.env,
         HOST: '0.0.0.0',
-        BROWSER: 'none'
+        BROWSER: 'none',
+        // 如果使用不压缩模式，设置相关环境变量
+        ...(useUncompressedMode ? {
+            GENERATE_SOURCEMAP: 'true',
+            INLINE_RUNTIME_CHUNK: 'false',
+            DISABLE_ESLINT_PLUGIN: 'true',
+            REACT_APP_BABEL_DISABLE_CACHE: '1',
+            BABEL_ENV: 'development',
+            NODE_ENV: 'development',
+            FAST_REFRESH: 'false', // 禁用快速刷新，有时会导致源码映射问题
+        } : {})
     },
     stdio: 'inherit',
     shell: true
@@ -96,13 +109,67 @@ waitOn({
     process.exit(1);
 });
 
-// 处理脚本终止
+// 增强清理函数
 const cleanUp = () => {
     console.log('正在清理进程...');
-    if (reactProcess) reactProcess.kill();
-    if (backendProcess) backendProcess.kill();
+
+    // 尝试优雅地终止进程
+    const gracefulTerminate = (proc, name) => {
+        if (proc && !proc.killed) {
+            console.log(`正在终止 ${name} 进程...`);
+            try {
+                // 首先尝试发送终止信号
+                proc.kill('SIGTERM');
+
+                // 设置超时强制终止
+                setTimeout(() => {
+                    if (!proc.killed) {
+                        console.log(`${name} 进程未响应，强制终止`);
+                        proc.kill('SIGKILL');
+                    }
+                }, 3000);
+            } catch (err) {
+                console.error(`终止 ${name} 进程失败:`, err);
+            }
+        }
+    };
+
+    // 终止所有进程
+    if (reactProcess) gracefulTerminate(reactProcess, 'React');
+    if (backendProcess) gracefulTerminate(backendProcess, 'Backend');
+    // 注意：此时electronProcess可能尚未定义，因此跳过
+
+    // 释放端口
+    try {
+        const ports = [3000, 3001, 9000];
+        console.log('释放被占用的端口...');
+
+        ports.forEach(port => {
+            const command = process.platform === 'win32'
+                ? `taskkill /F /IM "node.exe" /FI "LocalPort eq ${port}"`
+                : `lsof -ti:${port} | xargs -r kill -9`;
+
+            try {
+                require('child_process').execSync(command, { stdio: 'ignore' });
+            } catch (e) {
+                // 忽略错误，可能端口未被占用
+            }
+        });
+    } catch (e) {
+        console.error('释放端口时出错:', e);
+    }
+
+    // 确保完全退出
+    console.log('清理完成，退出进程');
+    process.exit(0);
 };
 
+// 监听更多退出信号
 process.on('SIGINT', cleanUp);
 process.on('SIGTERM', cleanUp);
-process.on('exit', cleanUp); 
+process.on('SIGHUP', cleanUp);
+process.on('exit', cleanUp);
+process.on('uncaughtException', (err) => {
+    console.error('未捕获的异常:', err);
+    cleanUp();
+}); 

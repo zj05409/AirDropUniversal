@@ -221,6 +221,92 @@ process.on('unhandledRejection', (error) => {
     console.error('未处理的 Promise 拒绝:', error);
 });
 
+// 优雅退出处理
+const cleanExit = () => {
+    console.log('服务器正在关闭...');
+
+    // 创建一个空的Promise数组来跟踪关闭操作
+    const closePromises = [];
+
+    // 关闭 Express 服务器
+    if (server) {
+        const expressPromise = new Promise((resolve) => {
+            server.close(() => {
+                console.log('Express 服务器已关闭');
+                resolve();
+            });
+        });
+        closePromises.push(expressPromise);
+    }
+
+    // 关闭 Socket.IO
+    if (io) {
+        const socketPromise = new Promise((resolve) => {
+            io.close(() => {
+                console.log('Socket.IO 已关闭');
+                resolve();
+            });
+        });
+        closePromises.push(socketPromise);
+    }
+
+    // 关闭 PeerJS 服务器 - 避免使用异常的close方法
+    if (peerServer) {
+        try {
+            console.log('正在关闭 PeerJS 服务器...');
+            // 不使用peerServer.close()，因为它可能不存在或不可靠
+
+            // 如果peerServer有HTTP服务器属性，尝试关闭它
+            if (peerServer._server && typeof peerServer._server.close === 'function') {
+                const peerPromise = new Promise((resolve) => {
+                    peerServer._server.close(() => {
+                        console.log('PeerJS HTTP 服务器已关闭');
+                        resolve();
+                    });
+                });
+                closePromises.push(peerPromise);
+            } else {
+                console.log('PeerJS 服务器无法使用标准方法关闭，但将随进程终止');
+            }
+
+            // 移除所有事件监听器
+            if (typeof peerServer.removeAllListeners === 'function') {
+                peerServer.removeAllListeners();
+                console.log('已移除 PeerJS 服务器的所有事件监听器');
+            }
+        } catch (error) {
+            console.error('尝试关闭 PeerJS 服务器时出错:', error);
+        }
+    }
+
+    // 等待所有关闭操作完成，或在超时后继续
+    Promise.race([
+        Promise.all(closePromises),
+        new Promise(resolve => setTimeout(resolve, 2000))  // 2秒超时
+    ]).then(() => {
+        console.log('所有服务已关闭或超时，退出进程');
+        process.exit(0);
+    });
+};
+
+// 注册退出事件处理程序
+process.on('SIGINT', cleanExit);
+process.on('SIGTERM', cleanExit);
+process.on('exit', cleanExit);
+
+// 在 Electron 环境中运行时注册子进程
+if (process.env.ELECTRON_RUN_AS_NODE || process.env.ELECTRON_START_URL) {
+    try {
+        const { app } = require('electron').remote;
+        if (app && app.registerChildProcess) {
+            app.registerChildProcess(process);
+            console.log('已在 Electron 中注册服务器进程');
+        }
+    } catch (e) {
+        // 忽略错误，可能不在 Electron 环境中
+    }
+}
+
 // 启动服务器
 server.listen(PORT, HOST, (error) => {
     if (error) {

@@ -695,4 +695,57 @@ app.on('before-quit', () => {
             serverProcess.kill();
         }
     }
-}); 
+});
+
+// 确保应用退出时清理所有子进程
+let childProcesses = [];
+
+// 注册子进程，以便应用退出时可以终止它们
+app.registerChildProcess = (process) => {
+    if (process && process.pid) {
+        console.log(`注册子进程: ${process.pid}`);
+        childProcesses.push(process);
+    }
+};
+
+// 优雅退出，确保杀死所有子进程
+const cleanExit = () => {
+    console.log('应用正在退出，清理资源...');
+
+    // 终止所有子进程
+    childProcesses.forEach(proc => {
+        if (proc && proc.pid) {
+            console.log(`终止子进程: ${proc.pid}`);
+            try {
+                process.kill(proc.pid);
+            } catch (e) {
+                console.error(`终止进程 ${proc.pid} 失败:`, e);
+            }
+        }
+    });
+
+    // 释放端口
+    const ports = [3000, 3001, 9000];
+    ports.forEach(port => {
+        const command = process.platform === 'win32'
+            ? `taskkill /F /IM "node.exe" /FI "LocalPort eq ${port}"`
+            : `lsof -ti:${port} | xargs -r kill -9`;
+
+        try {
+            require('child_process').execSync(command, { stdio: 'ignore' });
+            console.log(`已释放端口 ${port}`);
+        } catch (e) {
+            // 忽略错误，可能端口未被占用
+        }
+    });
+
+    // 最后退出
+    app.quit();
+    process.exit(0);
+};
+
+// 监听所有退出事件
+app.on('will-quit', cleanExit);
+process.on('SIGINT', cleanExit);
+process.on('SIGTERM', cleanExit);
+process.on('exit', cleanExit); 
