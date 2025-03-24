@@ -3,11 +3,37 @@
  */
 
 /**
+ * 检查是否在Electron环境
+ * @returns {boolean} 是否在Electron环境
+ */
+export const isElectronEnv = () => {
+    return window.appConfig && window.appConfig.isElectron === true;
+};
+
+/**
  * 获取服务器配置信息
  * @returns {Promise<Object>} 服务器配置信息
  */
 export const getServerConfig = async () => {
     try {
+        // 首先检查是否在Electron环境中
+        if (isElectronEnv()) {
+            console.log('Electron环境中，使用内置配置');
+            const ip = window.appConfig.serverIp;
+            const serverPort = window.appConfig.serverPort;
+            const peerPort = window.appConfig.peerPort;
+
+            return {
+                socketServer: `http://${ip}:${serverPort}`,
+                peerServer: {
+                    host: ip,
+                    port: peerPort,
+                    path: '/peerjs',
+                    secure: false
+                }
+            };
+        }
+
         // 从当前URL推断API地址
         const currentUrl = window.location.origin;
         const apiPort = 3001; // 服务器端口
@@ -56,6 +82,12 @@ export const getServerConfig = async () => {
  */
 export const getAppUrl = async () => {
     try {
+        // 首先检查是否在Electron环境中
+        if (isElectronEnv()) {
+            const ip = window.appConfig.serverIp;
+            return `http://${ip}:3000`;
+        }
+
         const config = await getServerConfig();
 
         // 直接使用getServerConfig返回的config对象中的ip

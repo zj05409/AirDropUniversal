@@ -132,21 +132,67 @@ export const saveReceivedFile = (blob, fileName) => {
         throw new Error('无效的文件数据');
     }
 
-    // 创建下载链接
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName || 'received-file';
+    // 确保有一个有效的文件名
+    const safeFileName = fileName || 'received-file';
+    console.log('准备下载文件:', safeFileName);
 
-    // 触发下载
-    document.body.appendChild(a);
-    a.click();
+    try {
+        // 移动浏览器特殊处理
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            console.log('移动设备检测到，使用增强下载方法');
 
-    // 清理
-    setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, 100);
+            // 为移动浏览器创建一个带有MIME类型的新Blob
+            const mimeType = blob.type || 'application/octet-stream';
+            const newBlob = new Blob([blob], { type: mimeType });
+
+            // 创建下载链接并设置download属性
+            const url = URL.createObjectURL(newBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = safeFileName;
+            a.setAttribute('data-downloadurl', `${mimeType}:${safeFileName}:${url}`);
+            a.setAttribute('target', '_blank');
+
+            // 一些移动浏览器需要以下设置
+            a.rel = 'noopener';
+
+            // 触发下载
+            document.body.appendChild(a);
+            setTimeout(() => {
+                a.click();
+
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            }, 0);
+
+            return;
+        }
+
+        // 桌面浏览器标准处理
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = safeFileName;
+
+        // 触发下载
+        document.body.appendChild(a);
+        a.click();
+
+        // 清理
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    } catch (error) {
+        console.error('文件下载失败:', error);
+
+        // 备用方法 - 直接打开URL可能导致浏览器预览而不是下载
+        alert(`文件下载出错，将尝试直接打开文件。文件名是: ${safeFileName}`);
+        window.open(URL.createObjectURL(blob), '_blank');
+    }
 };
 
 /**

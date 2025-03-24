@@ -2,6 +2,7 @@
     "name": "airdrop-universal",
     "version": "1.0.0",
     "private": true,
+    "main": "electron/index.js",
     "dependencies": {
         "@heroicons/react": "^2.0.18",
         "buffer": "^6.0.3",
@@ -29,7 +30,15 @@
         "clean-server": "sh kill-and-run.sh server",
         "build": "react-scripts build",
         "test": "react-scripts test",
-        "eject": "react-scripts eject"
+        "eject": "react-scripts eject",
+        "electron": "electron .",
+        "electron-dev": "node scripts/electron-starter.js",
+        "prebuild-electron": "npm run build",
+        "build-electron": "electron-builder",
+        "build-electron-all": "electron-builder -mwl",
+        "build-electron-mac": "electron-builder -m",
+        "build-electron-win": "electron-builder -w",
+        "build-electron-linux": "electron-builder -l"
     },
     "eslintConfig": {
         "extends": [
@@ -47,6 +56,64 @@
             "last 1 chrome version",
             "last 1 firefox version",
             "last 1 safari version"
+        ]
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "electron": "^29.1.0",
+        "electron-builder": "^24.13.1",
+        "wait-on": "^7.2.0"
+    },
+    "build": {
+        "appId": "com.airdrop.universal",
+        "productName": "AirDrop Universal",
+        "files": [
+            "build/**/*",
+            "electron/**/*",
+            "server.js"
+        ],
+        "extraResources": [
+            {
+                "from": "node_modules",
+                "to": "node_modules",
+                "filter": [
+                    "express/**/*",
+                    "cors/**/*",
+                    "socket.io/**/*",
+                    "socket.io-client/**/*",
+                    "peer/**/*",
+                    "peerjs/**/*",
+                    "ws/**/*"
+                ]
+            }
+        ],
+        "directories": {
+            "buildResources": "public",
+            "output": "dist"
+        },
+        "mac": {
+            "target": [
+                "dmg"
+            ],
+            "category": "public.app-category.utilities"
+        },
+        "win": {
+            "target": [
+                "nsis"
+            ]
+        },
+        "linux": {
+            "target": [
+                "AppImage"
+            ],
+            "category": "Utility"
+        },
+        "asar": true,
+        "asarUnpack": [
+            "node_modules/express/**/*",
+            "node_modules/cors/**/*",
+            "node_modules/socket.io/**/*",
+            "node_modules/peer/**/*"
         ]
     }
 }

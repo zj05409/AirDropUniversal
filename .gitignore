@@ -31,3 +31,6 @@ yarn-error.log*
 
 # 特定项目文件
 .eslintcache
+
+# electron product
+/release

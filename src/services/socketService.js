@@ -6,21 +6,37 @@
 import io from 'socket.io-client';
 import { SOCKET_CONFIG, getDynamicServerConfig } from '../utils/config';
 import { loadDeviceInfo, saveDeviceInfo, syncPeerIdWithDeviceInfo } from '../utils/deviceStorage';
+import { isElectronEnv } from '../utils/networkUtils';
 
 // 根据当前浏览器host推导初始socket URL
 const getInitialSocketUrl = () => {
+    // 检查是否在Electron环境中
+    if (isElectronEnv() && window.appConfig) {
+        const ip = window.appConfig.serverIp;
+        const port = window.appConfig.serverPort;
+        console.log(`在Electron环境中使用内置Socket URL: http://${ip}:${port}`);
+        return `http://${ip}:${port}`;
+    }
+
     const host = window.location.hostname;
     return `http://${host}:3001`;
 };
 
-// 初始使用基于当前host的URL创建Socket实例
+// 初始化socketUrl
 const socketUrl = getInitialSocketUrl();
-console.log('使用初始Socket URL:', socketUrl);
+console.log('初始Socket URL:', socketUrl);
+
 const socket = io(socketUrl, SOCKET_CONFIG);
 
 // 异步更新Socket配置
 (async () => {
     try {
+        // 如果在Electron环境中，不需要动态更新URL
+        if (isElectronEnv()) {
+            console.log('Electron环境，不进行Socket URL更新');
+            return;
+        }
+
         const dynamicConfig = await getDynamicServerConfig();
         if (dynamicConfig && dynamicConfig.serverUrl) {
             console.log('获取到动态服务器URL:', dynamicConfig.serverUrl);
