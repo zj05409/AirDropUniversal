@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { ArrowUpTrayIcon, FolderIcon, DocumentIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { TRANSFER_CONFIG } from '../utils/config';
 
@@ -6,12 +6,20 @@ import { TRANSFER_CONFIG } from '../utils/config';
  * 文件选择器组件
  * 允许用户选择要发送的文件和文件夹
  */
-const FileSelector = ({ selectedFiles, onFileSelect }) => {
+const FileSelector = forwardRef(({ onFileSelect }, ref) => {
     const [isMobile, setIsMobile] = useState(false);
     const [selectedItems, setSelectedItems] = useState([]);
     const fileInputRef = useRef(null);
     const directoryInputRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
+
+    // 暴露给父组件的方法
+    useImperativeHandle(ref, () => ({
+        resetFiles: () => {
+            console.log('重置文件选择器状态');
+            setSelectedItems([]);
+        }
+    }));
 
     // 检测是否为移动设备
     useEffect(() => {
@@ -467,29 +475,20 @@ const FileSelector = ({ selectedFiles, onFileSelect }) => {
         setSelectedItems(prev => prev.filter(item => item.id !== id));
     };
 
-    // 触发文件选择对话框
-    const handleSelectFileClick = () => {
-        console.log('点击选择文件按钮', {
-            isMobile,
-            inputElement: fileInputRef.current,
-            hasMultiple: fileInputRef.current?.hasAttribute('multiple'),
-            multipleValue: fileInputRef.current?.multiple
-        });
-
-        // 确保文件选择器有multiple属性
-        if (fileInputRef.current) {
-            if (isMobile) {
-                console.log('为移动设备明确设置multiple属性');
-                fileInputRef.current.setAttribute('multiple', 'multiple');
-                fileInputRef.current.multiple = true;
-            }
-            fileInputRef.current.click();
+    // 处理文件夹选择按钮点击
+    const handleFolderButtonClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isMobile) {
+            directoryInputRef.current.click();
         }
     };
 
-    // 触发文件夹选择对话框
-    const handleSelectFolderClick = () => {
-        directoryInputRef.current?.click();
+    // 处理文件选择按钮点击
+    const handleFileButtonClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        fileInputRef.current.click();
     };
 
     // 计算所有选择项目的总大小
@@ -555,7 +554,6 @@ const FileSelector = ({ selectedFiles, onFileSelect }) => {
                 onDragOver={handleDragOver}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
-                onClick={() => document.getElementById('fileInput').click()}
             >
                 {isDragging ? (
                     <div className="text-center py-6">
@@ -563,137 +561,81 @@ const FileSelector = ({ selectedFiles, onFileSelect }) => {
                         <p className="mt-2 text-lg font-medium text-blue-600">释放鼠标以上传文件</p>
                     </div>
                 ) : (
-                    <>
-                        <div className="flex justify-center items-center">
-                            <ArrowUpTrayIcon className="h-10 w-10 text-gray-400" />
+                    <div className="text-center py-6">
+                        <ArrowUpTrayIcon className="h-12 w-12 text-gray-400 mx-auto" />
+                        <p className="mt-2 text-lg font-medium text-gray-600">拖放文件到这里，或者</p>
+                        <div className="mt-4 flex justify-center space-x-4">
+                            <button
+                                onClick={handleFileButtonClick}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                            >
+                                选择文件
+                            </button>
+                            {!isMobile && (
+                                <button
+                                    onClick={handleFolderButtonClick}
+                                    className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                                >
+                                    选择文件夹
+                                </button>
+                            )}
                         </div>
-
-                        <p className="text-center text-gray-500">
-                            {isMobile
-                                ? "点击此处或下方按钮选择多个文件"
-                                : "将文件或文件夹拖放到此处，或点击下方按钮选择"}
-                        </p>
-
-                        {!isMobile && (
-                            <div className="flex items-center justify-center">
-                                <InformationCircleIcon className="h-5 w-5 text-blue-500 mr-2" />
-                                <p className="text-sm text-blue-600">
-                                    提示：可以同时拖放多个文件和文件夹，或分别使用下方按钮多次选择
-                                </p>
-                            </div>
-                        )}
-                    </>
+                    </div>
                 )}
-
-                <div className="flex justify-center space-x-4">
-                    {/* 隐藏的文件输入 */}
-                    <input
-                        ref={fileInputRef}
-                        id="fileInput"
-                        type="file"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                        multiple={true}
-                    />
-
-                    {/* 隐藏的文件夹输入（仅桌面设备显示） */}
-                    {!isMobile && (
-                        <input
-                            ref={directoryInputRef}
-                            id="directoryInput"
-                            type="file"
-                            className="hidden"
-                            onChange={handleDirectorySelect}
-                            webkitdirectory="true"
-                            directory="true"
-                            multiple
-                        />
-                    )}
-
-                    {/* 文件选择按钮 */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectFileClick();
-                        }}
-                        className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                    >
-                        <DocumentIcon className="h-5 w-5 mr-2" />
-                        {isMobile ? "选择多个文件" : "选择文件"}
-                    </button>
-
-                    {/* 文件夹选择按钮（仅桌面设备显示） */}
-                    {!isMobile && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectFolderClick();
-                            }}
-                            className="flex items-center px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
-                        >
-                            <FolderIcon className="h-5 w-5 mr-2" />
-                            选择文件夹
-                        </button>
-                    )}
-                </div>
             </div>
+
+            {/* 隐藏的文件输入框 */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+            />
+            {!isMobile && (
+                <input
+                    ref={directoryInputRef}
+                    type="file"
+                    webkitdirectory=""
+                    directory=""
+                    onChange={handleDirectorySelect}
+                    className="hidden"
+                />
+            )}
 
             {/* 已选文件列表 */}
             {selectedItems.length > 0 && (
-                <div className="mt-6">
-                    <div className="flex justify-between items-center mb-3">
-                        <h3 className="font-medium text-gray-700">已选择的项目</h3>
-                        <div className="flex items-center">
-                            <span className="text-sm text-gray-600 mr-4">
-                                共 {selectedItems.length} 个项目，
-                                总计：{formatFileSize(calculateTotalSize())}
-                            </span>
-                            <button
-                                onClick={handleClearAll}
-                                className="text-sm px-3 py-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors"
-                            >
-                                清除全部
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="max-h-60 overflow-y-auto border rounded-md">
-                        {selectedItems.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center p-2 hover:bg-gray-50 border-b last:border-b-0">
-                                <div className="flex items-center flex-1 min-w-0">
+                <div className="mt-4">
+                    <h3 className="text-lg font-medium text-gray-700 mb-2">已选文件</h3>
+                    <ul className="space-y-2">
+                        {selectedItems.map(item => (
+                            <li key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                                <div className="flex items-center space-x-2 overflow-hidden min-w-0 flex-1">
                                     {item.type === 'directory' ? (
-                                        <FolderIcon className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
+                                        <FolderIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
                                     ) : (
-                                        <DocumentIcon className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
+                                        <DocumentIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />
                                     )}
-                                    <div className="truncate">
-                                        <span className="font-medium">{item.name}</span>
-                                        {item.type === 'directory' && (
-                                            <span className="text-gray-500 text-xs ml-1">
-                                                ({item.fileCount}个文件)
-                                            </span>
-                                        )}
-                                    </div>
+                                    <span className="font-medium truncate">{item.name}</span>
                                 </div>
-                                <div className="flex items-center ml-2">
-                                    <span className="text-gray-500 text-sm mr-3">{formatFileSize(item.size)}</span>
+                                <div className="flex items-center space-x-4 flex-shrink-0 ml-2">
+                                    <span className="text-sm text-gray-500 whitespace-nowrap">
+                                        {item.type === 'directory' ? `${item.fileCount} 个文件` : formatFileSize(item.size)}
+                                    </span>
                                     <button
                                         onClick={() => handleRemoveItem(item.id)}
-                                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-                                        title="移除"
+                                        className="text-red-500 hover:text-red-700 whitespace-nowrap"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
+                                        移除
                                     </button>
                                 </div>
-                            </div>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 </div>
             )}
         </div>
     );
-};
+});
 
 export default FileSelector; 

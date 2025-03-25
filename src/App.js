@@ -59,15 +59,17 @@ function App() {
     const [error, setError] = useState('');
     const [qrCodeVisible, setQrCodeVisible] = useState(false);
     const [serverUrl, setServerUrl] = useState('');
-    const [batchFiles, setBatchFiles] = useState([]);
+    const [batchFiles, setBatchFiles] = useState(null);
 
     // 引用管理
+    const socketRef = useRef(null);
     const peerRef = useRef(null);
     const connectionsRef = useRef({});
-    const receivedChunksRef = useRef([]);
-    const fileMetadataRef = useRef(null);
-    const transferTimeoutRef = useRef(null);
     const transferStartTimeRef = useRef(null);
+    const transferTimeoutRef = useRef(null);
+    const fileMetadataRef = useRef(null);
+    const receivedChunksRef = useRef([]);
+    const fileSelectorRef = useRef(null);
 
     // 处理设备注册
     const handleRegisterDevice = () => {
@@ -248,12 +250,26 @@ function App() {
             onBatchProgress: (overallProgress, fileIndex, fileProgress) => {
                 setTransferProgress(overallProgress);
             },
-            onBatchEnd: (batchInfo, files) => {
+            onBatchEnd: (batchInfo, files, shouldResetUI) => {
                 console.log('批量文件接收完成:', batchInfo);
                 // 清除超时
                 if (transferTimeoutRef.current) {
                     clearTimeout(transferTimeoutRef.current);
                     transferTimeoutRef.current = null;
+                }
+
+                // 如果需要完全重置UI
+                if (shouldResetUI) {
+                    setTransferState('');
+                    setTransferProgress(0);
+                    setBatchFiles(null);
+                    fileMetadataRef.current = null;
+                    receivedChunksRef.current = [];
+
+                    // 重置文件选择器
+                    if (fileSelectorRef.current) {
+                        fileSelectorRef.current.resetFiles();
+                    }
                 }
 
                 // 不在这里修改状态，让文件保存流程完成后统一更新
@@ -442,17 +458,30 @@ function App() {
                 handleTransferState
             );
 
-            // 发送完成后，等待几秒再重置状态
+            // 发送完成后，显示成功提示并重置状态
+            alert('文件传输成功完成！');
             setTimeout(() => {
                 setTransferState('');
                 setTransferProgress(0);
                 setBatchFiles(null);
-            }, 3000);
+                // 清空已选文件列表，以便用户可以重新选择文件
+                if (fileSelectorRef.current) {
+                    fileSelectorRef.current.resetFiles();
+                }
+            }, 1500);
         } catch (err) {
             console.error('传输错误:', err);
             setError(err.message || '传输失败');
             setTransferState(TRANSFER_STATES.ERROR);
             setBatchFiles(null);
+
+            // 显示错误提示并重置UI
+            alert(`传输失败: ${err.message || '未知错误'}`);
+            setTimeout(() => {
+                setTransferState('');
+                setTransferProgress(0);
+                // 保留选择的文件，以便用户可以重试
+            }, 3000);
         }
     };
 
@@ -616,7 +645,7 @@ function App() {
 
                             {/* 文件选择器 */}
                             <FileSelector
-                                selectedFiles={selectedFiles}
+                                ref={fileSelectorRef}
                                 onFileSelect={setSelectedFiles}
                             />
 
@@ -624,7 +653,7 @@ function App() {
                             <DeviceList
                                 users={users.filter(user => user.id !== deviceId)} // 排除自己
                                 onStartTransfer={handleStartTransfer}
-                                disabled={!selectedFiles.length || transferState !== ''}
+                                disabled={!selectedFiles?.length || transferState !== ''}
                             />
 
                             {/* 传输状态 */}
@@ -632,7 +661,7 @@ function App() {
                                 <TransferStatus
                                     status={transferState}
                                     progress={transferProgress}
-                                    transferStats={batchFiles}
+                                    transferStats={batchFiles || null}
                                 />
                             )}
 

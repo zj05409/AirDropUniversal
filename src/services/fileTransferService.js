@@ -352,6 +352,9 @@ export const saveFilesAsZip = async (files, statusCallback) => {
             statusCallback('正在创建压缩包...');
         }
 
+        // 显示创建ZIP包的提示
+        alert(`正在将${files.length}个文件打包为ZIP文件，请稍候...`);
+
         const zip = new JSZip();
         const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
         const zipFilename = `AirDrop文件组-${dateStr}-${Date.now().toString().slice(-4)}.zip`;
@@ -444,12 +447,20 @@ export const saveFilesAsZip = async (files, statusCallback) => {
             statusCallback('准备下载ZIP文件...', 90);
         }
 
+        // 显示ZIP包创建完成，即将下载的提示
+        alert(`ZIP文件打包完成，文件名：${zipFilename}，即将开始下载...`);
+
         // 下载zip文件
         await saveReceivedFile(zipBlob, zipFilename);
 
         // 通知UI完成
         if (typeof statusCallback === 'function') {
             statusCallback('ZIP文件已创建完成', 100);
+
+            // 延迟重置状态
+            setTimeout(() => {
+                statusCallback(''); // 重置状态
+            }, 2000);
         }
 
         console.log('ZIP文件创建完成并开始下载');
@@ -532,6 +543,18 @@ export const setupFileReceiver = (connection, options = {}) => {
             if (typeof onError === 'function') {
                 onError(err);
             }
+
+            // 显示错误提示
+            alert(`文件接收失败: ${err.message || '未知错误'}`);
+
+            // 重置状态
+            if (typeof onStatusChange === 'function') {
+                onStatusChange(TRANSFER_STATES.ERROR);
+                // 延迟清除错误状态
+                setTimeout(() => {
+                    onStatusChange('');
+                }, 3000);
+            }
             return null;
         }
     };
@@ -566,6 +589,9 @@ export const setupFileReceiver = (connection, options = {}) => {
         } else {
             // 多个文件或包含文件夹，打包为ZIP
             console.log(`检测到多个文件 (${receivedFiles.length})，将创建ZIP压缩包`);
+
+            // 添加ZIP包创建提示
+            alert(`检测到${receivedFiles.length}个文件${currentBatch && currentBatch.containsFolders ? '(包含文件夹结构)' : ''}，即将创建ZIP压缩包...`);
 
             // 准备文件对象数组
             const filesForZip = receivedFiles.map(fileObj => {
@@ -614,6 +640,21 @@ export const setupFileReceiver = (connection, options = {}) => {
                 onStatusChange(TRANSFER_STATES.COMPLETED);
             }
 
+            // 显示批量文件接收成功提示
+            let fileCount = 0;
+            if (Array.isArray(batchFiles)) {
+                fileCount = batchFiles.filter(Boolean).length; // 过滤出非空文件
+            } else if (receivedFiles && Array.isArray(receivedFiles)) {
+                fileCount = receivedFiles.length;
+            }
+
+            // 根据文件数量和是否包含文件夹结构，提供不同的提示
+            if (fileCount > 1 || (currentBatch && currentBatch.containsFolders)) {
+                alert(`${fileCount}个文件接收成功！${currentBatch && currentBatch.containsFolders ? '包含文件夹结构，' : ''}将打包为ZIP文件后下载。`);
+            } else {
+                alert(`文件接收成功！即将开始下载。`);
+            }
+
             // 再延迟一点时间开始下载文件，给UI更新的时间
             setTimeout(() => {
                 // 批量保存所有文件
@@ -623,8 +664,13 @@ export const setupFileReceiver = (connection, options = {}) => {
                 setTimeout(() => {
                     if (typeof onStatusChange === 'function') {
                         onStatusChange('');
+
+                        // 发送重置信号，告知上层组件传输已完全完成，可以重置UI
+                        if (typeof onBatchEnd === 'function') {
+                            onBatchEnd(null, null, true); // 最后一个参数表示传输完全结束，需要重置UI
+                        }
                     }
-                }, 5000); // 延长时间，确保所有文件下载对话框都有足够时间显示
+                }, 3000); // 适当缩短时间
             }, 800);
         }, 500);
     };
@@ -885,6 +931,9 @@ export const setupFileReceiver = (connection, options = {}) => {
                             onStatusChange(TRANSFER_STATES.COMPLETED);
                         }
 
+                        // 显示成功提示
+                        alert('文件接收成功！即将开始下载。');
+
                         // 延迟下载文件，给UI更新的时间
                         setTimeout(() => {
                             // 单文件传输，直接保存
@@ -895,7 +944,12 @@ export const setupFileReceiver = (connection, options = {}) => {
                                 if (typeof onStatusChange === 'function') {
                                     onStatusChange('');
                                 }
-                            }, 5000);
+
+                                // 触发批次结束回调，表示需要完全重置UI
+                                if (typeof onBatchEnd === 'function') {
+                                    onBatchEnd(null, null, true);
+                                }
+                            }, 3000);
                         }, 800);
                     } else if (currentBatch &&
                         currentMetadata.fileIndex === currentBatch.totalFiles - 1 &&
@@ -911,6 +965,18 @@ export const setupFileReceiver = (connection, options = {}) => {
             console.error('处理接收数据时出错:', err);
             if (typeof onError === 'function') {
                 onError(err);
+            }
+
+            // 显示错误提示
+            alert(`文件接收失败: ${err.message || '未知错误'}`);
+
+            // 重置状态
+            if (typeof onStatusChange === 'function') {
+                onStatusChange(TRANSFER_STATES.ERROR);
+                // 延迟清除错误状态
+                setTimeout(() => {
+                    onStatusChange('');
+                }, 3000);
             }
         }
     });

@@ -45,7 +45,30 @@ export const createPeerInstance = async (options = {}) => {
             try {
                 // 创建 Peer 实例
                 console.log('初始化 Peer 实例，使用 ID:', peerId);
-                const peer = new Peer(peerId, peerServerConfig);
+                const peer = new Peer(peerId, {
+                    host: options.host || window.location.hostname,
+                    port: options.port || 9000,
+                    path: options.path || '/peerjs',
+                    debug: 2,
+                    config: {
+                        // 完全禁用 STUN/TURN 服务器
+                        iceServers: [],
+                        // 局域网优化设置
+                        iceTransportPolicy: 'all',
+                        // 禁用 ICE 候选池
+                        iceCandidatePoolSize: 0,
+                    },
+                    // 禁用 TURN 服务器
+                    secure: false,
+                    // 增加连接稳定性的设置
+                    retries: 5,
+                    pingInterval: 1000,
+                    // 降低连接开销
+                    serialization: 'binary',
+                    reliable: true,
+                    // 增加连接超时时间
+                    timeout: 60000
+                });
 
                 // 设置超时
                 const timeout = setTimeout(() => {

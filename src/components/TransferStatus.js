@@ -55,7 +55,7 @@ const TransferStatus = ({ status, progress, transferStats }) => {
             return null;
         }
 
-        const totalBytes = transferStats.totalSize;
+        const totalBytes = transferStats.totalSize || 0;
         const bytesTransferred = totalBytes * (progress / 100);
         const bytesRemaining = totalBytes - bytesTransferred;
         const secondsRemaining = bytesRemaining / transferStats.speed;
@@ -92,14 +92,14 @@ const TransferStatus = ({ status, progress, transferStats }) => {
             <p className="text-gray-600 mb-2">{getStatusText()}</p>
 
             {/* 多文件打包提示 */}
-            {transferStats && transferStats.totalFiles > 1 && (
+            {transferStats && typeof transferStats === 'object' && transferStats.totalFiles > 1 && (
                 <p className="text-sm text-gray-500 mb-2">
                     多个文件将会被打包为一个ZIP文件，传输完成后只需确认一次下载。
                 </p>
             )}
 
             {/* 传输统计信息 */}
-            {transferStats && (
+            {transferStats && typeof transferStats === 'object' && (
                 <div className="mt-3 mb-3 text-sm text-gray-600">
                     <div className="flex items-center mb-1">
                         {transferStats.containsFolders ? (
@@ -108,8 +108,9 @@ const TransferStatus = ({ status, progress, transferStats }) => {
                             <FaFile className="text-blue-500 mr-2" />
                         )}
                         <span>
-                            {transferStats.totalFiles} 个{transferStats.containsFolders ? '项目' : '文件'}
-                            ({formatFileSize(transferStats.totalSize)})
+                            {typeof transferStats.totalFiles === 'number' ? transferStats.totalFiles : 0} 个
+                            {transferStats.containsFolders ? '项目' : '文件'}
+                            ({formatFileSize(transferStats.totalSize || 0)})
                         </span>
                     </div>
 

@@ -1,0 +1,306 @@
+.transfer-status {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.status-header {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.status-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+.status-icon.success {
+    color: #34d399;
+}
+
+.status-icon.error {
+    color: #ef4444;
+}
+
+.status-icon.sending {
+    color: #3b82f6;
+}
+
+.status-icon.receiving {
+    color: #8b5cf6;
+}
+
+.status-icon.zipping {
+    color: #f59e0b;
+}
+
+.status-icon.waiting {
+    color: #6b7280;
+}
+
+.status-info {
+    flex: 1;
+}
+
+.status-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    color: #111827;
+}
+
+.error-container {
+    color: #d32f2f;
+    margin: 15px 0;
+}
+
+.error-message {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.success-message {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 0;
+    line-height: 1;
+}
+
+.progress-container {
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    height: 20px;
+    margin: 15px 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    border-radius: 10px;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #333;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.batch-info {
+    background-color: #f3f4f6;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 15px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.batch-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 80px;
+}
+
+.batch-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 2px;
+}
+
+.batch-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111827;
+}
+
+.batch-folders {
+    display: flex;
+    align-items: center;
+    background-color: #ffedd5;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #c2410c;
+}
+
+.folder-icon {
+    margin-right: 4px;
+}
+
+.batch-message {
+    font-size: 14px;
+    color: #4b5563;
+    margin: 15px 0 5px 0;
+    padding-left: 5px;
+    border-left: 3px solid #e5e7eb;
+}
+
+.reconnect-info {
+    font-style: italic;
+    color: #555;
+    margin: 10px 0;
+}
+
+.reconnect-tip {
+    font-size: 13px;
+    color: #777;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.retry-button {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.retry-button:hover {
+    background-color: #1976D2;
+}
+
+.cancel-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.cancel-button:hover {
+    background-color: #d32f2f;
+}
+
+.connection-animation {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    background-color: #2196F3;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+    animation-delay: 0.5s;
+}
+
+.dot:nth-child(3) {
+    animation-delay: 1s;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(0.7);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.connecting-status,
+.reconnecting-status {
+    padding: 15px;
+}
+
+.reconnecting-status {
+    background-color: rgba(255, 152, 0, 0.1);
+    border-radius: 6px;
+}
+
+.connection-tip {
+    font-size: 14px;
+    color: #666;
+    margin-top: 10px;
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+    .transfer-status {
+        padding: 15px;
+        margin: 15px 0;
+    }
+
+    .batch-info {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .batch-item {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .batch-label {
+        margin-bottom: 0;
+    }
+}
+
+.connection-troubleshoot {
+    background-color: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 15px 0;
+    text-align: left;
+}
+
+.connection-troubleshoot h4 {
+    color: #ff8f00;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.connection-troubleshoot ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.connection-troubleshoot li {
+    margin: 5px 0;
+    color: #555;
+    font-size: 14px;
+}
