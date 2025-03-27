@@ -40,6 +40,7 @@
         "prebuild-electron": "npm run build",
         "build-electron": "electron-builder",
         "build-electron-all": "electron-builder -mwl",
+        "prebuild-electron-all": "npm run build",
         "prebuild-electron-mac": "npm run build",
         "build-electron-mac": "electron-builder -m",
         "prebuild-electron-win": "npm run build",
