@@ -9,7 +9,7 @@
         "cors": "^2.8.5",
         "express": "^4.21.2",
         "jszip": "^3.10.1",
-        "peer": "^1.0.2",
+        "peer": "0.6.1",
         "peerjs": "^1.5.4",
         "qrcode": "^1.5.4",
         "react": "^18.2.0",
@@ -40,9 +40,14 @@
         "prebuild-electron": "npm run build",
         "build-electron": "electron-builder",
         "build-electron-all": "electron-builder -mwl",
+        "prebuild-electron-mac": "npm run build",
         "build-electron-mac": "electron-builder -m",
+        "prebuild-electron-win": "npm run build",
         "build-electron-win": "electron-builder -w",
-        "build-electron-linux": "electron-builder -l"
+        "prebuild-electron-linux": "npm run build",
+        "build-electron-linux": "electron-builder -l",
+        "build-dmg": "./fix-build.sh",
+        "dev": "./start-dev.sh"
     },
     "eslintConfig": {
         "extends": [
@@ -66,6 +71,7 @@
         "concurrently": "^8.2.2",
         "electron": "^29.1.0",
         "electron-builder": "^24.13.1",
+        "semver": "^7.7.1",
         "wait-on": "^7.2.0"
     },
     "build": {
@@ -74,7 +80,10 @@
         "files": [
             "build/**/*",
             "electron/**/*",
-            "server.js"
+            "server.js",
+            "package.json",
+            "node_modules/**/*",
+            "electron.js"
         ],
         "extraResources": [
             {
@@ -97,9 +106,22 @@
         },
         "mac": {
             "target": [
+                "dir",
                 "dmg"
             ],
-            "category": "public.app-category.utilities"
+            "category": "public.app-category.utilities",
+            "hardenedRuntime": false,
+            "gatekeeperAssess": false,
+            "entitlements": null,
+            "entitlementsInherit": null,
+            "artifactName": "${productName}-${version}-${arch}.${ext}",
+            "identity": null,
+            "type": "development",
+            "electronLanguages": [
+                "zh_CN"
+            ],
+            "darkModeSupport": true,
+            "notarize": false
         },
         "win": {
             "target": [
@@ -112,12 +134,14 @@
             ],
             "category": "Utility"
         },
-        "asar": true,
+        "asar": false,
         "asarUnpack": [
             "node_modules/express/**/*",
             "node_modules/cors/**/*",
             "node_modules/socket.io/**/*",
             "node_modules/peer/**/*"
-        ]
+        ],
+        "afterSign": null,
+        "electronVersion": "29.1.0"
     }
 }

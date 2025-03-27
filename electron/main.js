@@ -205,34 +205,46 @@ function startServer() {
     }
 }
 
+// 加载构建好的React应用
+function loadBuildPath(window) {
+    const buildPath = path.join(__dirname, '../build/index.html');
+    console.log('加载构建路径:', buildPath);
+
+    try {
+        if (fs.existsSync(buildPath)) {
+            window.loadFile(buildPath);
+            console.log('成功加载构建文件');
+            return true;
+        } else {
+            console.error('构建文件不存在:', buildPath);
+            return false;
+        }
+    } catch (error) {
+        console.error('加载构建文件失败:', error);
+        return false;
+    }
+}
+
 // 创建主窗口
 function createWindow() {
+    const mainWindowConfig = {
+        width: 1024,
+        height: 768,
+        show: false,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js'),
+            webSecurity: false // 允许加载本地资源
+        },
+        icon: path.join(__dirname, '../public/logo512.png')
+    };
+
     const localIp = getLocalIpAddress();
 
     try {
-        // 主窗口配置
-        const mainWindowOptions = {
-            width: 1200,
-            height: 800,
-            minWidth: 800,
-            minHeight: 600,
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-                enableRemoteModule: false,
-                sandbox: false, // 禁用沙盒以允许子进程访问Node功能
-                preload: path.join(__dirname, 'preload.js')
-            },
-            icon: path.join(__dirname, '..', 'public', 'favicon.ico'),
-            backgroundColor: '#000000', // 纯黑色背景避免闪烁
-            show: true, // 立即显示窗口
-            titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-            autoHideMenuBar: true,
-            center: true,
-        };
-
         // 创建主窗口
-        mainWindow = new BrowserWindow(mainWindowOptions);
+        mainWindow = new BrowserWindow(mainWindowConfig);
 
         // 设置窗口标题
         mainWindow.setTitle(`AirDrop Universal`);
@@ -312,13 +324,25 @@ function createWindow() {
                 </body>
             </html>`);
 
-        // 确保React应用不会太快加载导致用户看不到加载界面
+        // 加载应用
         if (process.env.ELECTRON_START_URL) {
-            // 强制延迟加载React应用
-            setTimeout(() => {
-                const startUrl = process.env.ELECTRON_START_URL || `http://${localIp}:3000`;
-                mainWindow.loadURL(startUrl);
-            }, 5000); // 强制等待5秒
+            // 开发模式：使用URL加载React开发服务器
+            console.log('从开发服务器加载:', process.env.ELECTRON_START_URL);
+            mainWindow.loadURL(process.env.ELECTRON_START_URL);
+        } else {
+            // 生产模式：优先使用production-starter.js
+            try {
+                console.log('尝试使用production-starter.js加载');
+                require('./production-starter');
+                const localIp = getLocalIpAddress();
+                mainWindow.loadURL(`http://${localIp}:3000`);
+            } catch (error) {
+                console.error('使用production-starter.js失败，尝试直接加载构建文件:', error);
+                if (!loadBuildPath(mainWindow)) {
+                    // 尝试启动React开发服务器
+                    reactProcess = startReactServer();
+                }
+            }
         }
 
         // 开发模式下打开开发者工具

@@ -101,3 +101,33 @@ npm run build-electron-linux  # Linux
 ## 📜 版权信息
 
 AirDrop通用版 &copy; 2023 - 基于MIT许可证开源 
+
+## 快速命令 🚀
+
+### 一键开发环境
+要快速启动完整的开发环境（前端、后端和Electron），只需运行：
+
+```bash
+# 一键启动开发环境
+./start-dev.sh
+
+# 或者使用npm脚本
+npm run dev
+```
+
+### 一键构建DMG安装包
+要一步完成React构建和创建macOS DMG安装包，只需运行：
+
+```bash
+# 最推荐的方式 - 使用一键脚本
+./fix-build.sh
+
+# 或者使用npm脚本
+npm run 一键部署
+# 或者
+npm run build-dmg
+```
+
+> **注意**：不推荐直接运行`npm run build-electron-mac`命令，因为这可能会跳过React构建步骤。请优先使用上述命令进行构建。
+
+DMG文件将位于 `dist/AirDrop Universal-1.0.0-x64.dmg` 
